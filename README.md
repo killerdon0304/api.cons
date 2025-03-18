@@ -27,6 +27,12 @@
 
 Consumet scrapes data from various websites and provides APIs for accessing the data to satisfy your needs.
 
+> [!IMPORTANT]
+> Self-hosting the Consumet is required to use the API. Consumet API is no longer publicly available. Please refer to the [Installation section](#installation) for more information on hosting your own instance.
+
+> [!CAUTION]
+> Consumet is not affiliated with any of the providers it scrapes data from. Consumet is not responsible for any misuse of the data provided by the API. Commercial utilization may lead to serious consequences, including potential site takedown measures. Ensure that you understand the legal implications before using this API.
+
 <h2> Table of Contents </h2>
 
 - [Installation](#installation)
@@ -41,6 +47,7 @@ Consumet scrapes data from various websites and provides APIs for accessing the 
 - [Showcases](#showcases)
 - [Provider Request](#provider-request)
 - [Support](#support)
+- [Contributors ✨](#contributors-)
 - [Related repositories](#related-repositories)
 
 ## Installation
@@ -71,6 +78,9 @@ $ docker pull riimuru/consumet-api
 $ docker run -p 3000:3000 riimuru/consumet-api
 ```
 This will start the server on port 3000. You can access the server at http://localhost:3000/, And can change the port by changing the -p option to `-p <port>:3000`.
+
+Be sure to set `NODE_ENV` to `PROD` in your environment variables when running your own instance.
+Check out the `.env.example` file for more information.
 
 You can add `-d` flag to run the server in detached mode.
 
@@ -110,8 +120,14 @@ Make a new [issue](https://github.com/consumet/consumet.ts/issues/new?assignees=
 You can contact the maintainers of consumet.ts via [email](mailto:consumet.org@gmail.com), or [join the discord server](https://discord.gg/qTPfvMxzNH) (Recommended).
 
 <a href="https://discord.gg/qTPfvMxzNH">
-   <img src="https://discordapp.com/api/guilds/987492554486452315/widget.png?style=banner2">
-</p>
+   <img src="https://discordapp.com/api/guilds/987492554486452315/widget.png?style=banner2"/>
+</a>
+
+
+## Contributors ✨
+Thanks to the following people for keeping this project alive and thriving.
+
+[![](https://contrib.rocks/image?repo=consumet/consumet.ts)](https://github.com/consumet/consumet.ts/graphs/contributors)
 
 ## Related repositories
  - [Consumet.ts](https://github.com/consumet/consumet.ts)

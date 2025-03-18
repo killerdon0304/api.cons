@@ -5,11 +5,21 @@ import flixhq from './flixhq';
 import viewasian from './viewasian';
 import dramacool from './dramacool';
 import fmovies from './fmovies';
+import goku from './goku';
+import movieshd from './movieshd';
+import sflix from './sflix';
+import multimovies from './multimovies';
+
 const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
   await fastify.register(flixhq, { prefix: '/flixhq' });
   await fastify.register(viewasian, { prefix: '/viewasian' });
   await fastify.register(dramacool, { prefix: '/dramacool' });
   await fastify.register(fmovies, { prefix: '/fmovies' });
+  await fastify.register(goku, { prefix: '/goku' });
+  await fastify.register(movieshd, { prefix: '/movieshd' });
+  await fastify.register(sflix, { prefix: '/sflix' });
+  await fastify.register(multimovies, { prefix: '/multimovies' });
+
   fastify.get('/', async (request: any, reply: any) => {
     reply.status(200).send('Welcome to Consumet Movies and TV Shows');
   });
@@ -21,7 +31,7 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
     };
 
     queries.movieProvider = decodeURIComponent(
-      (request.params as { movieProvider: string; page: number }).movieProvider
+      (request.params as { movieProvider: string; page: number }).movieProvider,
     );
 
     queries.page = (request.query as { movieProvider: string; page: number }).page;
@@ -29,7 +39,7 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
     if (queries.page! < 1) queries.page = 1;
 
     const provider = PROVIDERS_LIST.MOVIES.find(
-      (provider: any) => provider.toString.name === queries.movieProvider
+      (provider: any) => provider.toString.name === queries.movieProvider,
     );
 
     try {

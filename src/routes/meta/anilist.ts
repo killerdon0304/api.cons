@@ -1,13 +1,14 @@
 import { Redis } from 'ioredis';
 import { FastifyRequest, FastifyReply, FastifyInstance, RegisterOptions } from 'fastify';
 import { ANIME, META, PROVIDERS_LIST } from '@consumet/extensions';
-import { Genres } from '@consumet/extensions/dist/models';
+import { Genres, SubOrSub } from '@consumet/extensions/dist/models';
 import Anilist from '@consumet/extensions/dist/providers/meta/anilist';
 import { StreamingServers } from '@consumet/extensions/dist/models';
 
 import cache from '../../utils/cache';
 import { redis } from '../../main';
 import NineAnime from '@consumet/extensions/dist/providers/anime/9anime';
+import Gogoanime from '@consumet/extensions/dist/providers/anime/gogoanime';
 
 const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
   fastify.get('/', (_, rp) => {
@@ -76,11 +77,11 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
         id,
         year,
         status,
-        season
+        season,
       );
 
       reply.status(200).send(res);
-    }
+    },
   );
 
   fastify.get('/trending', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -97,8 +98,8 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
               redis as Redis,
               `anilist:trending;${page};${perPage}`,
               async () => await anilist.fetchTrendingAnime(page, perPage),
-              60 * 60
-            )
+              60 * 60,
+            ),
           )
       : reply.status(200).send(await anilist.fetchTrendingAnime(page, perPage));
   });
@@ -117,8 +118,8 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
               redis as Redis,
               `anilist:popular;${page};${perPage}`,
               async () => await anilist.fetchPopularAnime(page, perPage),
-              60 * 60
-            )
+              60 * 60,
+            ),
           )
       : reply.status(200).send(await anilist.fetchPopularAnime(page, perPage));
   });
@@ -133,17 +134,18 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
       const notYetAired = (request.query as { notYetAired: boolean }).notYetAired;
 
       const anilist = generateAnilistMeta();
+      const _weekStart = Math.ceil(Date.now() / 1000);
 
       const res = await anilist.fetchAiringSchedule(
-        page,
-        perPage,
-        weekStart,
-        weekEnd,
-        notYetAired
+        page ?? 1,
+        perPage ?? 20,
+        weekStart ?? _weekStart,
+        weekEnd ?? _weekStart + 604800,
+        notYetAired ?? true,
       );
 
       reply.status(200).send(res);
-    }
+    },
   );
 
   fastify.get('/genre', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -179,7 +181,7 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
       const res = await anilist.fetchRecentEpisodes(provider, page, perPage);
 
       reply.status(200).send(res);
-    }
+    },
   ),
     fastify.get('/random-anime', async (request: FastifyRequest, reply: FastifyReply) => {
       const anilist = generateAnilistMeta();
@@ -231,10 +233,10 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
                   anilist.fetchEpisodesListById(
                     id,
                     dub as boolean,
-                    fetchFiller as boolean
+                    fetchFiller as boolean,
                   ),
-                dayOfWeek === 0 || dayOfWeek === 6 ? 60 * 120 : (60 * 60) / 2
-              )
+                dayOfWeek === 0 || dayOfWeek === 6 ? 60 * 120 : (60 * 60) / 2,
+              ),
             )
         : reply
             .status(200)
@@ -282,13 +284,13 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
                 `anilist:info;${id};${isDub};${fetchFiller};${anilist.provider.name.toLowerCase()}`,
                 async () =>
                   anilist.fetchAnimeInfo(id, isDub as boolean, fetchFiller as boolean),
-                dayOfWeek === 0 || dayOfWeek === 6 ? 60 * 120 : (60 * 60) / 2
-              )
+                dayOfWeek === 0 || dayOfWeek === 6 ? 60 * 120 : (60 * 60) / 2,
+              ),
             )
         : reply
             .status(200)
             .send(
-              await anilist.fetchAnimeInfo(id, isDub as boolean, fetchFiller as boolean)
+              await anilist.fetchAnimeInfo(id, isDub as boolean, fetchFiller as boolean),
             );
     } catch (err: any) {
       reply.status(500).send({ message: err.message });
@@ -311,9 +313,13 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
       const episodeId = (request.params as { episodeId: string }).episodeId;
       const provider = (request.query as { provider?: string }).provider;
       const server = (request.query as { server?: StreamingServers }).server;
+      let isDub = (request.query as { dub?: string | boolean }).dub;
 
       if (server && !Object.values(StreamingServers).includes(server))
         return reply.status(400).send('Invalid server');
+
+      if (isDub === 'true' || isDub === '1') isDub = true;
+      else isDub = false;
 
       let anilist = generateAnilistMeta(provider);
 
@@ -324,12 +330,29 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
               .send(
                 await cache.fetch(
                   redis,
-                  `anilist:watch;${episodeId};${anilist.provider.name.toLowerCase()};${server}`,
-                  async () => anilist.fetchEpisodeSources(episodeId, server),
-                  600
-                )
+                  `anilist:watch;${episodeId};${anilist.provider.name.toLowerCase()};${server};${isDub ? 'dub' : 'sub'}`,
+                  async () =>
+                    provider === 'zoro' || provider === 'animekai'
+                      ? await anilist.fetchEpisodeSources(
+                          episodeId,
+                          server,
+                          isDub ? SubOrSub.DUB : SubOrSub.SUB,
+                        )
+                      : await anilist.fetchEpisodeSources(episodeId, server),
+                  600,
+                ),
               )
-          : reply.status(200).send(await anilist.fetchEpisodeSources(episodeId, server));
+          : reply
+              .status(200)
+              .send(
+                provider === 'zoro' || provider === 'animekai'
+                  ? await anilist.fetchEpisodeSources(
+                      episodeId,
+                      server,
+                      isDub ? SubOrSub.DUB : SubOrSub.SUB,
+                    )
+                  : await anilist.fetchEpisodeSources(episodeId, server),
+              );
 
         anilist = new META.Anilist(undefined, {
           url: process.env.PROXY as string | string[],
@@ -339,14 +362,38 @@ const routes = async (fastify: FastifyInstance, options: RegisterOptions) => {
           .status(500)
           .send({ message: 'Something went wrong. Contact developer for help.' });
       }
-    }
+    },
   );
+
+  //anilist staff info from character id (for example: voice actors)
+  //http://127.0.0.1:3000/meta/anilist/staff/95095  (gives info of sukuna's voice actor (Junichi Suwabe) )
+  fastify.get('/staff/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const id = (request.params as { id: string }).id;
+
+    const anilist = generateAnilistMeta();
+    try {
+      redis
+        ? reply
+            .status(200)
+            .send(
+              await cache.fetch(
+                redis,
+                `anilist:staff;${id}`,
+                async () => await anilist.fetchStaffById(Number(id)),
+                60 * 60,
+              ),
+            )
+        : reply.status(200).send(await anilist.fetchStaffById(Number(id)));
+    } catch (err: any) {
+      reply.status(404).send({ message: err.message });
+    }
+  });
 };
 
 const generateAnilistMeta = (provider: string | undefined = undefined): Anilist => {
   if (typeof provider !== 'undefined') {
     let possibleProvider = PROVIDERS_LIST.ANIME.find(
-      (p) => p.name.toLowerCase() === provider.toLocaleLowerCase()
+      (p) => p.name.toLowerCase() === provider.toLocaleLowerCase(),
     );
 
     if (possibleProvider instanceof NineAnime) {
@@ -355,7 +402,7 @@ const generateAnilistMeta = (provider: string | undefined = undefined): Anilist 
         {
           url: process.env?.NINE_ANIME_PROXY as string,
         },
-        process.env?.NINE_ANIME_HELPER_KEY as string
+        process.env?.NINE_ANIME_HELPER_KEY as string,
       );
     }
 
@@ -363,7 +410,8 @@ const generateAnilistMeta = (provider: string | undefined = undefined): Anilist 
       url: process.env.PROXY as string | string[],
     });
   } else {
-    return new Anilist(undefined, {
+    // default provider is gogoanime
+    return new Anilist(new Gogoanime(), {
       url: process.env.PROXY as string | string[],
     });
   }
